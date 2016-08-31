@@ -1,11 +1,14 @@
 /*
  * Created by cnadig on 8/29/16.
  * Email : chidambaranadig@gmail.com
+ *
+ * Things to improve
+ *      1. Replace HashMap with some other datastructure which takes O(log n) for Read and Writes.
+ *      2. Verify access modifiers once again.
+ *      3. Verify Static and Non-Static objects once again.
  */
 package com.nadig.simpleredis;
-
 import java.util.*;
-import java.util.logging.Logger;
 
 public class Solution {
 
@@ -33,19 +36,16 @@ class Cli{
     void startRepl(){
 
         Scanner in = new Scanner(System.in);
-        String cmd = in.nextLine().trim();
-        //boolean validCommand;
+        String cmd;
 
-        while(!cmd.toUpperCase().equals("END")){
-
-            //Print Command
+        do{
+            cmd= in.nextLine().trim();
             System.out.println(cmd);
 
+            // Evaluate Command
             evaluate(cmd);
 
-            //Read Next Command to Process
-            cmd = in.nextLine().trim();
-        }
+        } while(!cmd.toUpperCase().equals("END"));
     }
     public void evaluate(String cmd){
 
@@ -129,6 +129,9 @@ class Cli{
                     System.out.println("> NO TRANSACTION");
                 break;
             }
+            case "":
+            case "END": break; // No action for END command here. Do-While loop terminates in cli.startRepl() function
+
             default: {
                 System.out.println("> Command not recognized!");
             }
@@ -137,20 +140,33 @@ class Cli{
 }
 class Database {
 
-    //private Logger logger = Logger.getLogger("com.nadig.simpleredis.Database");
-
+    /*
+    Associate a command line object for this database.
+    The CLI is used to execute rollback commands.
+     */
     private Cli cli;
 
+    /*
+    The in-memory database is implemented using a HashMap
+    Reads take O(1)
+    Writes take O(1)
+     */
     private HashMap<String, Integer> data;
 
-    private ArrayList<String> transactionStatements;
+    /*
+    A stack is maintained to keep track of nested transactions
+     */
+    private ArrayList<String> rollbackStatements;
 
     private boolean transactionOpen;
 
+    private boolean rollbackCommands;
+
     Database() {
         data = new HashMap<>();
-        transactionStatements = null;
+        rollbackStatements = null;
         transactionOpen=false;
+        rollbackCommands=false;
     }
 
     public void attachCli(Cli c){
@@ -162,24 +178,31 @@ class Database {
     }
     public void write(String key, int value){
 
-        if(!transactionOpen) {
-            //logger.info("Writing Directly to Database");
-            data.put(key, value);
+        if(transactionOpen && !rollbackCommands) {
+
+            String rollbackCommand;
+
+            if(!data.containsKey(key)){
+                rollbackCommand = "UNSET " + key;
+            }
+            else{
+                rollbackCommand = "SET " + key + " " + data.get(key);
+            }
+            rollbackStatements.add(rollbackCommand);
         }
-        else {
-            //logger.info("Transaction Open. Adding command to transaction statements.");
-            String statement = "SET " + key + " " + value;
-            transactionStatements.add(statement);
-        }
+        data.put(key, value);
     }
 
     public void remove(String key){
-        if(!transactionOpen)
-            data.remove(key);
-        else {
-            String statement = "UNSET " + key;
-            transactionStatements.add(statement);
+
+        if(transactionOpen && !rollbackCommands) {
+            if(data.containsKey(key)){
+                String rollbackCommand;
+                rollbackCommand = "SET " + key + " " + data.get(key);
+                rollbackStatements.add(rollbackCommand);
+            }
         }
+        data.remove(key);
     }
 
     public int findAllOccurances(int value){
@@ -193,36 +216,33 @@ class Database {
 
     public void transactionBegin(){
 
-        if(transactionStatements==null){
-            transactionStatements=new ArrayList<String>();
+        if(rollbackStatements ==null){
+            rollbackStatements =new ArrayList<String>();
         }
         transactionOpen = true;
-        transactionStatements.add("BEGIN");
-
-        //logger.info("BEGIN : Started Transaction: "+transactionStatements.size());
-
-
+        rollbackStatements.add("BEGIN");
     }
 
     public boolean transactionRollback(){
 
         boolean rollbackSuccessful=false;
 
-        if(transactionOpen) {
+        if(transactionOpen){
 
-            //logger.info("ROLLBACK: Number of Transaction Statements Before: " + transactionStatements.size());
-
-            int fromIndex = transactionStatements.lastIndexOf("BEGIN");
-            // Truncating statements from most recent "BEGIN" to end.
-            transactionStatements.subList(fromIndex, transactionStatements.size()).clear();
-
-            //Close Transaction if all statements have been rolled back
-            if(transactionStatements.size()==0)
-                transactionOpen=false;
-
-            //logger.info("ROLLBACK: Number of Transaction Statements After: " + transactionStatements.size());
-
+            int mostRecentBegin = rollbackStatements.lastIndexOf("BEGIN");
+            rollbackCommands=true;
+            for(int i=mostRecentBegin+1; i<rollbackStatements.size(); i++){
+                cli.evaluate(rollbackStatements.get(i));
+            }
+            rollbackCommands=false;
             rollbackSuccessful=true;
+
+            // Remove rollback statements that were executed from stack
+            rollbackStatements.subList(mostRecentBegin,rollbackStatements.size()).clear();
+
+            // Close Transaction if there are no more Rollback statements in the stack
+            if(rollbackStatements.size()==0)
+                transactionOpen = false;
         }
         return rollbackSuccessful;
     }
@@ -232,26 +252,10 @@ class Database {
         boolean commitSuccessful = false;
 
         if(transactionOpen) {
-
-            transactionOpen = false;
-
-            //logger.info("COMMIT: Number of Transaction Statements Before: " + transactionStatements.size());
-
-            for (Iterator<String> iterator = transactionStatements.iterator(); iterator.hasNext(); ) {
-                String cmd = iterator.next();
-                if (!cmd.equals("BEGIN")) {
-                    //logger.info("Executing Transaction command : " + cmd);
-                    cli.evaluate(cmd);
-                }
-
-            }
-
-            transactionStatements.clear();
-            //logger.info("COMMIT: Number of Transaction Statements After: " + transactionStatements.size());
-
-            commitSuccessful = true;
+            rollbackStatements.clear();
+            transactionOpen=false;
+            commitSuccessful=true;
         }
         return commitSuccessful;
     }
 }
-
