@@ -3,11 +3,11 @@
  * Email : chidambaranadig@gmail.com
  *
  * Things to improve
- *      1. Replace HashMap with some other datastructure which takes O(log n) for Read and Writes.
- *      2. Verify access modifiers once again.
- *      3. Verify Static and Non-Static objects once again.
+ *      1. Verify access modifiers once again.
+ *      2. Verify Static and Non-Static objects once again.
  */
 package com.nadig.simpleredis;
+
 import java.util.*;
 
 public class Solution {
@@ -147,11 +147,15 @@ class Database {
     private Cli cli;
 
     /*
-    The in-memory database is implemented using a HashMap
-    Reads take O(1)
-    Writes take O(1)
+    The in-memory database is implemented using a TreeMap
+    Reads take O(log n)
+    Writes take O(log n)
+    Updates take O(log n)
+    Deletes take O(log n)
+
+    Space for n Key-Values : O(n)
      */
-    private HashMap<String, Integer> data;
+    private TreeMap<String,Integer> database;
 
     /*
     A stack is maintained to keep track of nested transactions
@@ -163,10 +167,11 @@ class Database {
     private boolean rollbackCommands;
 
     Database() {
-        data = new HashMap<>();
+        database = new TreeMap<String,Integer>();
         rollbackStatements = null;
         transactionOpen=false;
         rollbackCommands=false;
+        cli=null;
     }
 
     public void attachCli(Cli c){
@@ -174,7 +179,7 @@ class Database {
     }
 
     public Integer read(String key){
-        return data.get(key);
+        return database.get(key);
     }
     public void write(String key, int value){
 
@@ -182,32 +187,32 @@ class Database {
 
             String rollbackCommand;
 
-            if(!data.containsKey(key)){
+            if(!database.containsKey(key)){
                 rollbackCommand = "UNSET " + key;
             }
             else{
-                rollbackCommand = "SET " + key + " " + data.get(key);
+                rollbackCommand = "SET " + key + " " + database.get(key);
             }
             rollbackStatements.add(rollbackCommand);
         }
-        data.put(key, value);
+        database.put(key, value);
     }
 
     public void remove(String key){
 
         if(transactionOpen && !rollbackCommands) {
-            if(data.containsKey(key)){
+            if(database.containsKey(key)){
                 String rollbackCommand;
-                rollbackCommand = "SET " + key + " " + data.get(key);
+                rollbackCommand = "SET " + key + " " + database.get(key);
                 rollbackStatements.add(rollbackCommand);
             }
         }
-        data.remove(key);
+        database.remove(key);
     }
 
     public int findAllOccurances(int value){
         int count=0;
-        for(Map.Entry<String, Integer> e : data.entrySet()){
+        for(Map.Entry<String, Integer> e : database.entrySet()){
             if (e.getValue() == value)
                 count++;
         }
