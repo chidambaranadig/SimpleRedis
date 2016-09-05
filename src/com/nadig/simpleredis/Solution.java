@@ -1,12 +1,13 @@
 /*
  * Created by cnadig on 8/29/16.
  * Email : chidambaranadig@gmail.com
+ * Github : https://github.com/chidambaranadig
  *
  * Things to improve
  *      1. Verify access modifiers once again.
  *      2. Verify Static and Non-Static objects once again.
  */
-package com.nadig.simpleredis;
+//package com.nadig.simpleredis;
 
 import java.util.*;
 
@@ -49,7 +50,7 @@ class Cli{
     }
     public void evaluate(String cmd){
 
-        boolean returnCode=false;
+        boolean returnCode;
         String[] args = cmd.split("\\s+");
 
         String command = args[0].toUpperCase();
@@ -62,7 +63,7 @@ class Cli{
                 }
 
                 String key = args[1];
-                int value = Integer.parseInt(args[2]);
+                String value = args[2];
                 db.write(key, value);
                 break;
             }
@@ -73,11 +74,11 @@ class Cli{
                 }
 
                 String key = args[1];
-                Integer value = db.read(key);
+                String value = db.read(key);
                 if (value == null)
                     System.out.println("> NULL");
                 else
-                    System.out.println("> " + value.toString());
+                    System.out.println("> " + value);
                 break;
             }
             case "UNSET": {
@@ -95,7 +96,7 @@ class Cli{
                     return;
                 }
 
-                int value = Integer.parseInt(args[1]);
+                String value = args[1];
                 int count = db.findAllOccurances(value);
 
                 System.out.println("> " + count);
@@ -153,9 +154,9 @@ class Database {
     Updates take O(log n)
     Deletes take O(log n)
 
-    Space for n Key-Values : O(n)
+    Space Complexity for n Key-Values : O(n)
      */
-    private TreeMap<String,Integer> database;
+    private TreeMap<String,String> database;
 
     /*
     A stack is maintained to keep track of nested transactions
@@ -167,7 +168,7 @@ class Database {
     private boolean rollbackCommands;
 
     Database() {
-        database = new TreeMap<String,Integer>();
+        database = new TreeMap<String,String>();
         rollbackStatements = null;
         transactionOpen=false;
         rollbackCommands=false;
@@ -178,14 +179,21 @@ class Database {
         this.cli = c;
     }
 
-    public Integer read(String key){
+    public String read(String key){
         return database.get(key);
     }
-    public void write(String key, int value){
+    public void write(String key, String value){
 
         if(transactionOpen && !rollbackCommands) {
 
             String rollbackCommand;
+
+            /*
+            The Following If-Else block checks if a key is being newly added
+            or if an existing key is being updated.
+
+            A corresponding rollback statement is constructed and added onto the rollBackStatements stack.
+             */
 
             if(!database.containsKey(key)){
                 rollbackCommand = "UNSET " + key;
@@ -210,10 +218,10 @@ class Database {
         database.remove(key);
     }
 
-    public int findAllOccurances(int value){
+    public int findAllOccurances(String value){
         int count=0;
-        for(Map.Entry<String, Integer> e : database.entrySet()){
-            if (e.getValue() == value)
+        for(Map.Entry<String, String> e : database.entrySet()){
+            if (e.getValue().equals(value))
                 count++;
         }
         return count;
