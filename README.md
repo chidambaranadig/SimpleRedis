@@ -14,6 +14,14 @@ A simplified in-memory database similar to REDIS.
 * ROLLBACK
 * COMMIT
 
+### Implementation
+
+* The Key-Value pairs are stored in-memory using a TreeMap.
+* The Runtime Complexity for Read, Insert, Update and Delete is *O(log n)*.
+* A Database Class is implemented, with wrapper functions for Read, Write and Delete.
+* A CLI Class is implemented to simulate the REPL CLI Interface.
+* The CLI Class checks for valid commands and their syntax.
+
 ### Example Run
 ##### INPUTS
 ```
@@ -41,10 +49,3 @@ NUMEQUALTO 10
 > 1
 END
 ```
-### Implementation
-
-* The Key-Value pairs are stored in-memory using a TreeMap.
-* The Runtime Complexity for Read, Insert, Update and Delete is *O(log n)*.
-* A Database Class is implemented, with wrapper functions for Read, Write and Delete.
-* A CLI Class is implemented to simulate the REPL CLI Interface.
-* The CLI Class checks for valid commands and their syntax.

@@ -1,13 +1,10 @@
 /*
  * Created by cnadig on 8/29/16.
  * Email : chidambaranadig@gmail.com
- * Github : https://github.com/chidambaranadig
+ * Github : https://github.com/chidambaranadig/SimpleRedis
  *
- * Things to improve
- *      1. Verify access modifiers once again.
- *      2. Verify Static and Non-Static objects once again.
  */
-//package com.nadig.simpleredis;
+package com.nadig.simpleredis;
 
 import java.util.*;
 
@@ -163,8 +160,11 @@ class Database {
      */
     private ArrayList<String> rollbackStatements;
 
+
+    // Flag to track if there is at least one transaction that is open.
     private boolean transactionOpen;
 
+    // Flag to check if the commands being executed are rollback commands or transaction commands.
     private boolean rollbackCommands;
 
     Database() {
@@ -175,6 +175,11 @@ class Database {
         cli=null;
     }
 
+
+    /*
+    When a transaction is being rolled back,
+    the rollback commands are issued through the CLI to restore the original state of the database.
+     */
     public void attachCli(Cli c){
         this.cli = c;
     }
