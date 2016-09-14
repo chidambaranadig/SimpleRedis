@@ -155,6 +155,8 @@ class Database {
      */
     private TreeMap<String,String> database;
 
+    private TreeMap<String,ArrayList<String>> invertedMap;
+
     /*
     A stack is maintained to keep track of nested transactions
      */
@@ -169,6 +171,7 @@ class Database {
 
     Database() {
         database = new TreeMap<String,String>();
+        invertedMap = new TreeMap<String,ArrayList<String>>();
         rollbackStatements = null;
         transactionOpen=false;
         rollbackCommands=false;
@@ -208,7 +211,47 @@ class Database {
             }
             rollbackStatements.add(rollbackCommand);
         }
-        database.put(key, value);
+
+        // If the variable isn't in the database
+        if(database.get(key)== null) {
+            database.put(key, value);
+
+            // If the value isn't in the invertedMap : created a new Arraylist with variable name and add map Arraylist to value in invertedMap
+            if (invertedMap.get(value) == null) {
+                ArrayList<String> keys = new ArrayList<>();
+                keys.add(key);
+                invertedMap.put(value, keys);
+            }
+            else {
+                ArrayList<String> keys = invertedMap.get(value);
+                keys.add(key);
+                invertedMap.put(value, keys);
+            }
+        }
+        else{
+            String storedValue = database.get(key);
+            // If variable is being updated to a new value
+            if(!storedValue.equals(value)){
+
+                // Remove the variable from the arraylist mapped to old value
+                ArrayList<String> keys = invertedMap.get(storedValue);
+                keys.remove(key);
+                invertedMap.put(storedValue, keys);
+
+                // If the new value isn't in the invertedMap : created a new Arraylist with variable name and add map Arraylist to new value in invertedMap
+                if (invertedMap.get(value) == null) {
+                    ArrayList<String> keys2 = new ArrayList<>();
+                    keys2.add(key);
+                    invertedMap.put(value, keys2);
+                } else {
+                    ArrayList<String> keys2 = invertedMap.get(value);
+                    keys2.add(key);
+                    invertedMap.put(value, keys2);
+                }
+            }
+            database.put(key,value);
+        }
+
     }
 
     public void remove(String key){
@@ -220,16 +263,32 @@ class Database {
                 rollbackStatements.add(rollbackCommand);
             }
         }
-        database.remove(key);
+        // if the variable exists in the database
+        if(database.get(key) != null){
+
+            String value = database.get(key);
+
+            // if the value of the variable exists in invertedMap
+            if(invertedMap.get(value) != null)  {
+
+                ArrayList<String> keys = invertedMap.get(value);
+                keys.remove(key);
+
+                // If there are no more variables mapped to that value : remove that value's entry from the invertedMap
+                if(keys.size()==0)
+                    invertedMap.remove(value);
+                else
+                    invertedMap.put(value, keys);
+            }
+            database.remove(key);
+        }
     }
 
     public int findAllOccurances(String value){
-        int count=0;
-        for(Map.Entry<String, String> e : database.entrySet()){
-            if (e.getValue().equals(value))
-                count++;
-        }
-        return count;
+
+        if(invertedMap.get(value) == null)
+            return 0;
+        return invertedMap.get(value).size();
     }
 
     public void transactionBegin(){
